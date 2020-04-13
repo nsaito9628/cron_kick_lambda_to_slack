@@ -33,27 +33,29 @@ def lambda_handler(event, context):
        
         for keys, date in lastUpdate.items():
             if keys == "id": continue
+
             for i in range(len(data_type)):
                 if keys == data_type[i]:
 
                     dtUpdated = getCSVData("https://opendata.pref.shizuoka.jp/api/package_show?id=" + apiID[i])
-                    if dtUpdated == False: 
+                    if dtUpdated is None: 
                         lastUpdate[keys] = date
                         logger.info("Data change going on")
                         continue
 
-                    dt_delta_tmp = (dtUpdated - datetime.strptime(date,"%Y-%m-%d %H:%M:%S")).total_seconds()
-                    
-                    if dt_delta_tmp < 0 :
-                        lastUpdate[keys] = str(dtUpdated)
+                    else:                        
+                        dt_delta_tmp = (dtUpdated - datetime.strptime(date,"%Y-%m-%d %H:%M:%S")).total_seconds()
+                        
+                        if dt_delta_tmp < 0 :
+                            lastUpdate[keys] = str(dtUpdated)
 
-                    elif dt_delta_tmp > 0:
-                        post_slack(dtUpdated, keys)
-                        lastUpdate[keys] = str(dtUpdated)
+                        elif dt_delta_tmp > 0:
+                            post_slack(dtUpdated, keys)
+                            lastUpdate[keys] = str(dtUpdated)
 
-                    else:
-                        lastUpdate[keys] = str(dtUpdated)
-                        logger.info("No change of opendata")
+                        else:
+                            lastUpdate[keys] = str(dtUpdated)
+                            logger.info("No change of opendata")
         
         lastUpdate["id"] = 0
         date_updated = list(lastUpdate.values())
@@ -85,11 +87,19 @@ def lambda_handler(event, context):
 def getCSVData(apiAddress):
     try:
         Response = requests.get(apiAddress)
+        #リクエストのリターンが正常通信で終わらなかったらFalseを返す
         if Response.status_code != 200: 
-            return False 
-        apiResponse = Response.json()
-        resources = apiResponse["result"]["resources"]
-        
+            logger.info("Response status error")
+            return None
+
+        #取得したjsonにkey errorがあったらFalseを返す
+        try:
+            apiResponse = Response.json()
+            resources = apiResponse["result"]["resources"]
+        except KeyError:
+            logger.info("Response json KeyError")
+            return None
+
         apiResources = None
         csvAddress = None
         for i in range(len(resources)):
@@ -99,10 +109,10 @@ def getCSVData(apiAddress):
             if ext.lower() == ".csv":
                 logger.info(csvAddress)
                 break
-        
-        # タイムゾーン +09:00 -> +0900 for strptime %f
+        #jsonの値がNoneだったらFalseを返す
         if apiResources["updated"][:-3] is None:
-            return False
+            logger.info("json value empty")
+            return None
         dateStr = apiResources["updated"][:-3] + apiResources["updated"][-2:]
         tmp_dtUpdated = datetime.strptime(dateStr, "%Y-%m-%dT%H:%M:%S.%f%z").replace(tzinfo=None)
         dtUpdated = datetime.strptime(tmp_dtUpdated.strftime("%Y-%m-%d %H:%M:%S"),"%Y-%m-%d %H:%M:%S")
@@ -112,4 +122,4 @@ def getCSVData(apiAddress):
 
     except Exception as e:
         logger.exception(e)
-        return None, None
+        return None

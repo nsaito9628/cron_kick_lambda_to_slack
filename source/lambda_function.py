@@ -52,6 +52,7 @@ def lambda_handler(event, context):
                         elif dt_delta_tmp > 0:
                             post_slack(dtUpdated, keys)
                             lastUpdate[keys] = str(dtUpdated)
+                            logger.info("Post slack executed")
 
                         else:
                             lastUpdate[keys] = str(dtUpdated)

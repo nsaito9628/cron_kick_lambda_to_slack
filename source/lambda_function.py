@@ -110,10 +110,15 @@ def getCSVData(apiAddress):
             if ext.lower() == ".csv":
                 logger.info(csvAddress)
                 break
+
         #jsonの値がNoneだったらFalseを返す
-        if apiResources["updated"][:-3] is None:
+        try:
+            dateStr = apiResources["updated"][:-3] + apiResources["updated"][-2:]
+        except TypeError:
+        #if apiResources["updated"][:-3] is None:
             logger.info("json value empty")
             return None
+        
         dateStr = apiResources["updated"][:-3] + apiResources["updated"][-2:]
         tmp_dtUpdated = datetime.strptime(dateStr, "%Y-%m-%dT%H:%M:%S.%f%z").replace(tzinfo=None)
         dtUpdated = datetime.strptime(tmp_dtUpdated.strftime("%Y-%m-%d %H:%M:%S"),"%Y-%m-%d %H:%M:%S")
